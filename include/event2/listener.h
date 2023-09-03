@@ -146,6 +146,11 @@ struct evconnlistener *evconnlistener_new(struct event_base *base,
    @param addr The address to listen for connections on.
    @param socklen The length of the address.
  */
+
+EVENT2_EXPORT_SYMBOL
+struct evconnlistener *evconnlistener_new_bind_custom(struct event_base *base,
+                                               evconnlistener_cb cb, void *ptr, unsigned flags, int backlog,
+                                               const struct sockaddr *sa, int socklen, evutil_socket_t *result_fd);
 EVENT2_EXPORT_SYMBOL
 struct evconnlistener *evconnlistener_new_bind(struct event_base *base,
     evconnlistener_cb cb, void *ptr, unsigned flags, int backlog,

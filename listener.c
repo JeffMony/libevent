@@ -208,6 +208,66 @@ evconnlistener_new(struct event_base *base,
 }
 
 struct evconnlistener *
+evconnlistener_new_bind_custom(struct event_base *base, evconnlistener_cb cb,
+                               void *ptr, unsigned flags, int backlog, const struct sockaddr *sa,
+                               int socklen, evutil_socket_t *result_fd)
+{
+  struct evconnlistener *listener;
+  evutil_socket_t fd;
+  int on = 1;
+  int family = sa ? sa->sa_family : AF_UNSPEC;
+  int socktype = SOCK_STREAM | EVUTIL_SOCK_NONBLOCK;
+
+  if (backlog == 0)
+    return NULL;
+
+  if (flags & LEV_OPT_CLOSE_ON_EXEC)
+    socktype |= EVUTIL_SOCK_CLOEXEC;
+
+  fd = evutil_socket_(family, socktype, 0);
+  if (fd == -1)
+    return NULL;
+
+  if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (void*)&on, sizeof(on))<0)
+    goto err;
+
+  if (flags & LEV_OPT_REUSEABLE) {
+    if (evutil_make_listen_socket_reuseable(fd) < 0)
+      goto err;
+  }
+
+  if (flags & LEV_OPT_REUSEABLE_PORT) {
+    if (evutil_make_listen_socket_reuseable_port(fd) < 0)
+      goto err;
+  }
+
+  if (flags & LEV_OPT_DEFERRED_ACCEPT) {
+    if (evutil_make_tcp_listen_socket_deferred(fd) < 0)
+      goto err;
+  }
+
+  if (flags & LEV_OPT_BIND_IPV6ONLY) {
+    if (evutil_make_listen_socket_ipv6only(fd) < 0)
+      goto err;
+  }
+
+  if (sa) {
+    if (bind(fd, sa, socklen)<0)
+      goto err;
+  }
+
+  listener = evconnlistener_new(base, cb, ptr, flags, backlog, fd);
+  if (!listener)
+    goto err;
+
+  *result_fd = fd;
+  return listener;
+  err:
+  evutil_closesocket(fd);
+  return NULL;
+}
+
+struct evconnlistener *
 evconnlistener_new_bind(struct event_base *base, evconnlistener_cb cb,
     void *ptr, unsigned flags, int backlog, const struct sockaddr *sa,
     int socklen)
